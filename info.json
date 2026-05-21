@@ -5,5 +5,5 @@
   "author": "CapnSudz",
   "description": "A mod that allows for mixing and matching quality ingredients to make quality outputs",
   "factorio_version": "2.0",
-  "dependencies": ["base >= 1.1.0", "quality >= 2.0"]
+  "dependencies": ["base >= 1.1.0", "quality >= 2.0", "? space-age >= 1.0"]
 }

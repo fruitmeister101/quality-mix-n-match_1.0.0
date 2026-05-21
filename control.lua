@@ -14,7 +14,7 @@ script.on_init(function ()
     storage.assemblerBuffers = {}
 end)
 
-script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_entity, defines.events.script_raised_revive}, function (event)
+script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_entity, defines.events.script_raised_revive, defines.events.on_player_rotated_entity}, function (event)
     local entity = event.entity
     if not entity or not entity.valid then return end
 
@@ -182,22 +182,32 @@ function AttemptCraft(entity, id)
             storage.assemblerBuffers[id]["RollRand"] = false
             storage.assemblerBuffers[id]["RandRoll"] = math.random() * 10
         end
-        local baseQuality = 0
-        local insertQuality = ""
-        if q >= 10 then
-            while true do
-                if q - 10 >= 0 then
-                    q = q - 10
-                    baseQuality = baseQuality + 1
-                else
-                    break
-                end
+        local foundStack = nil
+        for i = 1, #outputInv do
+            local stack = outputInv[i]
+            if stack and stack.valid_for_read then
+                foundStack = stack
             end
-
-            insertQuality = qualityReverseLookup[baseQuality]
-            if q > 0 then
-                if storage.assemblerBuffers[id]["RandRoll"] < q then
-                    insertQuality = qualityReverseLookup[baseQuality + 1]
+        end
+        local insertQuality = ""
+        if foundStack then
+            
+            local baseQuality = qualityLookup[foundStack.quality.name] - 1
+            if q >= 10 then
+                while true do
+                    if q - 10 >= 0 then
+                        q = q - 10
+                        baseQuality = math.min(baseQuality + 1, #(prototypes.quality) - 1)
+                    else
+                        break
+                    end
+                end
+                
+                insertQuality = qualityReverseLookup[baseQuality]
+                if q > 0 then
+                    if storage.assemblerBuffers[id]["RandRoll"] < q then
+                        insertQuality = qualityReverseLookup[baseQuality + 1]
+                    end
                 end
             end
         end
@@ -251,7 +261,7 @@ function AttemptCraft(entity, id)
                                 x = x + 1
                                 trunk.set_filter(x, {name = data.name, quality = q})
                                 local stack = trunk[x]
-                                if stack.valid_for_read and not (stack.name == ingredients[i].name) then
+                                if stack.valid_for_read and not (stack.name == data.name) then
                                     storage.assemblerBuffers[id]["buffers"][stack.name] = 
                                     (storage.assemblerBuffers[id]["buffers"][stack.name] or 0) + stack.count
                                     storage.assemblerBuffers[id]["quality"][stack.name] = 
@@ -354,3 +364,40 @@ function GetInsertersPointingAtMe(entity, id)
     end
 end
 
+
+
+script.on_nth_tick(1800, function ()
+    for _, surface in pairs(game.surfaces) do
+        local assemblers = surface.find_entities_filtered({name = "mix-n-matcher-assembler"})
+        if assemblers then
+            for _, assembler in pairs(assemblers) do
+                local id = assembler.unit_number
+                local inserters = surface.find_entities_filtered({type = "inserter", position = assembler.position, radius = 5})
+                if inserters then
+                    for _, inserter in pairs(inserters) do
+                        local target = inserter.drop_position
+                        if target then 
+                            local dropCandidates = surface.find_entities(target)
+                            if dropCandidates then
+                                
+                                for _, test in pairs(dropCandidates) do
+                                    if test.name == "mix-n-matcher-assembler" then
+                                        local addInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
+                                        if not addInserter then
+                                            storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = inserter
+                                        end
+                                    end
+                                end
+                            else
+                                local dropInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
+                                if dropInserter then
+                                    storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = nil
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)

@@ -2,12 +2,14 @@
 local quality_assembler_item = table.deepcopy(data.raw["item"]["assembling-machine-2"])
 quality_assembler_item.name = "mix-n-matcher-assembler"
 quality_assembler_item.place_result = "mix-n-matcher-assembler"
+
 data:extend({quality_assembler_item})
 
 
 local qualityAssembler = table.deepcopy(data.raw["assembling-machine"]["assembling-machine-2"])
 qualityAssembler.name = "mix-n-matcher-assembler"
 qualityAssembler.crafting_speed = 1
+qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
 -- qualityAssembler.selection_box = nil       -- Cannot be hovered over or clicked
 qualityAssembler.minable.result = "mix-n-matcher-assembler"
 data:extend({qualityAssembler})
@@ -81,3 +83,6 @@ data:extend({{
     -- Hides the item from the game GUI, production stats, and filters
     hidden = true,
 }})
+
+
+
