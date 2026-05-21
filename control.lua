@@ -377,7 +377,7 @@ script.on_nth_tick(1800, function ()
                     for _, inserter in pairs(inserters) do
                         local target = inserter.drop_position
                         if target then 
-                            local dropCandidates = surface.find_entities(target)
+                            local dropCandidates = surface.find_entities_filtered({position = target})
                             if dropCandidates then
                                 
                                 for _, test in pairs(dropCandidates) do
