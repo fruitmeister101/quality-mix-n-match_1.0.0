@@ -18,7 +18,7 @@ for machine, _ in pairs(QualityMixNMatchCopies) do
     data:extend({quality_assembler_item})
     local qualityAssembler = table.deepcopy(data.raw["assembling-machine"][machine])
     qualityAssembler.name = "mix-n-matcher-"..machine
-    qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
+    -- qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
     qualityAssembler.minable.result = "mix-n-matcher-"..machine
     qualityAssembler.allow_inserter_to_pull_from_or_target = false
     qualityAssembler.collision_mask = {
@@ -27,6 +27,7 @@ for machine, _ in pairs(QualityMixNMatchCopies) do
             object = true
         }
     }
+    -- qualityAssembler.collision_box = nil
     qualityAssembler.next_upgrade = nil
     qualityAssembler.dump_inventory_size = 0
 

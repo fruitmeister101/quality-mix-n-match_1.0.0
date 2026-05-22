@@ -53,7 +53,7 @@ for machine, mdata in pairs(QualityMixNMatchCopies) do
         local selBox = mdata.selection_box
         local colBox = mdata.collision_box
         hiddenChest.selection_box = {{selBox[1][1] * 0.5,selBox[1][2] * 0.5},{selBox[2][1] * 0.5,selBox[2][2] * 0.5}}
-        hiddenChest.collision_box = {{colBox[1][1] + 0.25,colBox[1][2] + 0.25},{colBox[2][1] - 0.25,colBox[2][2] - 0.25}}
+        hiddenChest.collision_box = colBox
         hiddenChest.draw_copper_wires = false
         hiddenChest.minable = nil
         hiddenChest.inventory_size = (maxRecipe + maxOutputs + 1) * (maxQuality) 

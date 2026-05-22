@@ -85,7 +85,7 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
         end
     end)
         
-script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_entity, defines.events.on_player_mined_entity}, function (event)
+script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_entity, defines.events.on_player_mined_entity,defines.events.script_raised_destroy }, function (event)
     local entity = event.entity
     if not entity or not entity.valid then return end
     
