@@ -1,3 +1,3 @@
-# quality-mix-n-match_1.0.0
+# Quality-Mix-N-Match
 
-# The Mod makes special assemblers to allow the mixing and matching of quality ingredients for recipes!
+This Mod makes special assemblers to allow the mixing and matching of quality ingredients for recipes!
