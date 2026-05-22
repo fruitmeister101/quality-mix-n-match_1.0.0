@@ -1,17 +1,20 @@
 QualityMixNMatchCopies = {}
 
+
+
 if mods["base"] then
-    QualityMixNMatchCopies["assembling-machine-2"] = table.deepcopy(data.raw["assembling-machine"]["assembling-machine-2"])
+    QualityMixNMatchCopies["assembling-machine-2"] = {["machine"]=table.deepcopy(data.raw["assembling-machine"]["assembling-machine-2"]), ["tech"]="automation-2"}
 end
 if mods["space-age"] then
-    QualityMixNMatchCopies["foundry"] = table.deepcopy(data.raw["assembling-machine"]["foundry"])
-    QualityMixNMatchCopies["electromagnetic-plant"] = table.deepcopy(data.raw["assembling-machine"]["electromagnetic-plant"])
-    QualityMixNMatchCopies["biochamber"] = table.deepcopy(data.raw["assembling-machine"]["biochamber"])
-    QualityMixNMatchCopies["cryogenic-plant"] = table.deepcopy(data.raw["assembling-machine"]["cryogenic-plant"])
+    QualityMixNMatchCopies["foundry"] = {["machine"]=table.deepcopy(data.raw["assembling-machine"]["foundry"]), ["tech"]="foundry"}
+    QualityMixNMatchCopies["electromagnetic-plant"] = {["machine"]=table.deepcopy(data.raw["assembling-machine"]["electromagnetic-plant"]), ["tech"]="electromagnetic-plant"}
+    QualityMixNMatchCopies["biochamber"] = {["machine"]=table.deepcopy(data.raw["assembling-machine"]["biochamber"]), ["tech"]="biochamber"}
+    QualityMixNMatchCopies["cryogenic-plant"] = {["machine"]=table.deepcopy(data.raw["assembling-machine"]["cryogenic-plant"]), ["tech"]="cryogenic-plant"}
 end
 
 
-for machine, _ in pairs(QualityMixNMatchCopies) do
+for _, mdata in pairs(QualityMixNMatchCopies) do
+    local machine = mdata["machine"].name
     local quality_assembler_item = table.deepcopy(data.raw["item"][machine])
     quality_assembler_item.name = "mix-n-matcher-"..machine
     quality_assembler_item.place_result = "mix-n-matcher-"..machine
@@ -36,4 +39,62 @@ for machine, _ in pairs(QualityMixNMatchCopies) do
     local hiddenChest = table.deepcopy(data.raw["car"]["car"])
     hiddenChest.name = "mix-n-matcher-hidden-chest-"..machine
     data:extend({hiddenChest})
+
+    local machineRecipe = table.deepcopy(data.raw["recipe"][machine])
+    machineRecipe.name = "mix-n-matcher-"..machine
+    machineRecipe.results = {{type="item",name="mix-n-matcher-"..machine,amount=1}}
+    data:extend({machineRecipe})
+
+    local exchangeRecipe = {
+        type= "recipe",
+        name = "exchange-"..machine.."-for-quality-mix-n-matcher",
+        ingredients = {{type="item",name=machine, amount = 1}},
+        time = 0.1,
+        results = {{type="item",name="mix-n-matcher-"..machine,amount=1}}
+    }
+    data:extend({exchangeRecipe})
+    local exchangeRecipeBack = {
+        type= "recipe",
+        name = "exchange-quality-mix-n-matcher-for-"..machine,
+        ingredients = {{type="item",name="mix-n-matcher-"..machine,amount=1}},
+        time = 0.1,
+        results = {{type="item",name=machine, amount = 1}},
+    }
+    data:extend({exchangeRecipeBack})
+
+    local tech = data.raw["technology"][mdata["tech"]]
+    local tech_icon = tech.icon
+    local tech_icon_size = tech.icon_size
+    local machine_tech = {
+        type = "technology",
+        name = "mix-n-matcher-"..machine,
+        icon = tech_icon or "__base__/graphics/icons/coin.png",
+        icon_size = tech_icon_size or 64,
+        effects = {
+            {
+                type = "unlock-recipe",
+                recipe = "mix-n-matcher-"..machine -- Links directly to the recipe above
+            },
+            {
+                type = "unlock-recipe",
+                recipe = "exchange-"..machine.."-for-quality-mix-n-matcher"
+            },
+            {
+                type = "unlock-recipe",
+                recipe = "exchange-quality-mix-n-matcher-for-"..machine,
+            },
+        },
+        prerequisites = {mdata["tech"], "quality-module"}, -- Automatically requires researching the vanilla machine first
+        unit = {
+            count = 100,
+            ingredients = {
+                {"automation-science-pack", 1},
+                {"logistic-science-pack", 1}
+            },
+            time = 30
+        }
+    }
+    data:extend({machine_tech})
+
+
 end

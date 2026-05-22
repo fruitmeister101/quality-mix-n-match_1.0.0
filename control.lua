@@ -25,6 +25,7 @@ end
 
 script.on_init(function ()
     storage.assemblerBuffers = {}
+    storage.hiddenChests = {}
 end)
 
 script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_entity, defines.events.script_raised_revive, defines.events.on_player_rotated_entity}, function (event)
@@ -42,9 +43,11 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
             }
             hidden_chest.destructible = false -- Make sure it cannot be accidentally destroyed
             -- hidden_chest.active = false
+            
+            storage.hiddenChests[hidden_chest.unit_number] = entity
             local x = 0
             local trunk = hidden_chest.get_inventory(defines.inventory.car_trunk)
-
+            
             while x < #trunk do
                 x = x + 1
                 trunk.set_filter(x, {name = "dummy-item"})
@@ -68,8 +71,10 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
         end
     end
         if entity.type == "inserter" then
+
             -- Look at where the inserter drops items to see if it targets our assembler
             local targetList = entity.surface.find_entities_filtered{position = entity.drop_position}
+            local pickUpList = entity.surface.find_entities_filtered{position = entity.pickup_position}
             for i = 1, #targetList do
                 local target = targetList[i]
                 for copyName, machine in pairs(qualityMixNMatchCopies) do
@@ -78,6 +83,22 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
                         if storage.assemblerBuffers[assemblerId] then
                             storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
                             entity.drop_target = storage.assemblerBuffers[assemblerId]["chest"]
+                            -- game.print("Successfully Added Inserter: "..entity.unit_number)
+                            SetExtractingInserterFiltersToOutputs(assemblerId, target.get_recipe(), {[1]=entity})
+                        end
+                    end
+                end
+            end
+            for i = 1, #pickUpList do
+                local pickup = pickUpList[i]
+                for copyName, machine in pairs(qualityMixNMatchCopies) do
+                    if pickup and (pickup.name == machine or pickup.name == "mix-n-matcher-hidden-chest-"..copyName) then
+                        local assemblerId = pickup.unit_number
+                        if storage.assemblerBuffers[assemblerId] then
+                            storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
+                            entity.pickup_target = storage.assemblerBuffers[assemblerId]["chest"]
+                            -- game.print("Successfully Added Inserter: "..entity.unit_number)
+                            SetExtractingInserterFiltersToOutputs(assemblerId, pickup.get_recipe(), {[1]=entity})
                         end
                     end
                 end
@@ -133,10 +154,20 @@ script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_en
         end
         if entity.type == "inserter" then
             local target = entity.drop_target
+            local pickup = entity.pickup_target
             if target then
-                for _, copyName in pairs(qualityMixNMatchCopies) do
-                    if entity.drop_target.name == "mix-n-matcher-hidden-chest-"..copyName then
-                        storage.assemblerBuffers[entity.drop_target.unit_number]["inserters"][entity.unit_number] = nil
+                for machineName, _ in pairs(qualityMixNMatchCopies) do
+                    if target.name == "mix-n-matcher-hidden-chest-"..machineName then
+                        storage.assemblerBuffers[storage.hiddenChests[target.unit_number].unit_number]["inserters"][entity.unit_number] = nil
+                        -- game.print("Successfully removed inserter: " .. entity.unit_number)
+                    end
+                end
+            end
+            if pickup then
+                for machineName, _ in pairs(qualityMixNMatchCopies) do
+                    if pickup.name == "mix-n-matcher-hidden-chest-"..machineName then
+                        storage.assemblerBuffers[storage.hiddenChests[pickup.unit_number].unit_number]["inserters"][entity.unit_number] = nil
+                        -- game.print("Successfully removed inserter: " .. entity.unit_number)
                     end
                 end
             end
@@ -190,6 +221,25 @@ function ClearInserterHandsIfStuck(entity, id)
                 storage.assemblerBuffers[id]["buffers"][stack.name] = (storage.assemblerBuffers[id]["buffers"][stack.name] or 0) + stack.count
                 storage.assemblerBuffers[id]["quality"][stack.name] = (storage.assemblerBuffers[id]["quality"][stack.name] or 0) + qualityLookup[stack.quality.name] * 10 * stack.count
                 stack.clear()
+            end
+        end
+    end
+end
+
+function SetExtractingInserterFiltersToOutputs(id, recipe, inserters)
+    if not recipe then return end
+    if inserters then
+        for _, inserter in pairs(inserters) do
+            if inserter then
+                if inserter.pickup_target and inserter.pickup_target == storage.assemblerBuffers[id]["chest"] then
+                    local i = 0
+                    inserter.use_filters = true
+                    inserter.inserter_filter_mode = "whitelist"
+                    for _, product in pairs(recipe.products) do
+                        i = i + 1
+                        inserter.set_filter(i, {name=product.name})
+                    end
+                end
             end
         end
     end
@@ -256,9 +306,15 @@ function AttemptCraft(entity, id)
             local trunk = chest.get_inventory(defines.inventory.car_trunk)
             local x = 0
             local ingredients = recipe.ingredients
+            local products = recipe.products
             local qualities = prototypes.quality
+            local inserters = storage.assemblerBuffers[id]["inserters"]
             if ingredients and qualities then
+                if inserters and products then
+                    SetExtractingInserterFiltersToOutputs(id, recipe, inserters)
+                end
                 for i = 1, #ingredients do
+                    
                     if ingredients[i].type == "item" then
                         storage.assemblerBuffers[id]["bufferMax"][ingredients[i].name] = math.ceil(ingredients[i].amount * entity.crafting_speed * 2)
                         for q, _ in pairs(qualities) do
@@ -308,6 +364,8 @@ function AttemptCraft(entity, id)
             storage.assemblerBuffers[id]["bufferMax"]["max " .. ingredient.name] = ingredient.amount * 5  / recipe.energy
         end
     end
+
+
 
     for _, ingredient in pairs(entity.get_recipe().ingredients) do
         if ingredient.type == "item" then
@@ -380,8 +438,16 @@ function GetInsertersPointingAtMe(entity, id)
             local targets = surface.find_entities_filtered{
                 position = inserter.drop_position
             }
+            local pickups = surface.find_entities_filtered{
+                position = inserter.pickup_position
+            }
             for _, target in pairs(targets) do
                 if target == entity then
+                    storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = inserter
+                end
+            end
+            for _, pickup in pairs(pickups) do
+                if pickup == entity then
                     storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = inserter
                 end
             end

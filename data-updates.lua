@@ -50,8 +50,8 @@ for machine, mdata in pairs(QualityMixNMatchCopies) do
     if hiddenChest then
         
         hiddenChest.collision_mask = {layers = {}} -- Empty layers = no collision with anything
-        local selBox = mdata.selection_box
-        local colBox = mdata.collision_box
+        local selBox = mdata["machine"].selection_box
+        local colBox = mdata["machine"].collision_box
         hiddenChest.selection_box = {{selBox[1][1] * 0.5,selBox[1][2] * 0.5},{selBox[2][1] * 0.5,selBox[2][2] * 0.5}}
         hiddenChest.collision_box = colBox
         hiddenChest.draw_copper_wires = false
@@ -65,6 +65,7 @@ for machine, mdata in pairs(QualityMixNMatchCopies) do
         hiddenChest.guns = nil
         hiddenChest.animation = nil
         hiddenChest.turret_animation = nil
+        hiddenChest.draw_cargo = false
         -- Make it completely invisible
         hiddenChest.hidden = true
         hiddenChest.picture = {
