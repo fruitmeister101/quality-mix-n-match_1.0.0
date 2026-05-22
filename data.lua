@@ -1,88 +1,38 @@
+QualityMixNMatchCopies = {}
 
-local quality_assembler_item = table.deepcopy(data.raw["item"]["assembling-machine-2"])
-quality_assembler_item.name = "mix-n-matcher-assembler"
-quality_assembler_item.place_result = "mix-n-matcher-assembler"
-
-data:extend({quality_assembler_item})
-
-
-local qualityAssembler = table.deepcopy(data.raw["assembling-machine"]["assembling-machine-2"])
-qualityAssembler.name = "mix-n-matcher-assembler"
-qualityAssembler.crafting_speed = 1
-qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
--- qualityAssembler.selection_box = nil       -- Cannot be hovered over or clicked
-qualityAssembler.minable.result = "mix-n-matcher-assembler"
-data:extend({qualityAssembler})
-
-local maxRecipe = 0
-local maxOutputs = 0
-for _, recipe in pairs(data.raw.recipe) do
-    local ingredients = recipe.ingredients
-    if ingredients then
-        
-        local count = 0
-        for _, _ in pairs(ingredients) do
-            count = count + 1
-        end
-        
-        maxRecipe = math.max(maxRecipe, count)
-    end
-    local products = recipe.products
-    if products then
-        local count = 0
-        for _, _ in pairs(products) do
-            count = count + 1
-        end
-        
-        maxOutputs = math.max(maxOutputs, count)
-    end
-
+if mods["base"] then
+    QualityMixNMatchCopies["assembling-machine-2"] = table.deepcopy(data.raw["assembling-machine"]["assembling-machine-2"])
+end
+if mods["space-age"] then
+    QualityMixNMatchCopies["foundry"] = table.deepcopy(data.raw["assembling-machine"]["foundry"])
+    QualityMixNMatchCopies["electromagnetic-plant"] = table.deepcopy(data.raw["assembling-machine"]["electromagnetic-plant"])
+    QualityMixNMatchCopies["biochamber"] = table.deepcopy(data.raw["assembling-machine"]["biochamber"])
+    QualityMixNMatchCopies["cryogenic-plant"] = table.deepcopy(data.raw["assembling-machine"]["cryogenic-plant"])
 end
 
-local maxQuality = 0
-for name, _ in pairs(data.raw.quality) do
-    if name ~= "quality-unknown" then
-        maxQuality = maxQuality + 1
-    end
+
+for machine, _ in pairs(QualityMixNMatchCopies) do
+    local quality_assembler_item = table.deepcopy(data.raw["item"][machine])
+    quality_assembler_item.name = "mix-n-matcher-"..machine
+    quality_assembler_item.place_result = "mix-n-matcher-"..machine
+    data:extend({quality_assembler_item})
+    local qualityAssembler = table.deepcopy(data.raw["assembling-machine"][machine])
+    qualityAssembler.name = "mix-n-matcher-"..machine
+    qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
+    qualityAssembler.minable.result = "mix-n-matcher-"..machine
+    qualityAssembler.allow_inserter_to_pull_from_or_target = false
+    qualityAssembler.collision_mask = {
+        layers = {
+            floor = true,
+            object = true
+        }
+    }
+    qualityAssembler.next_upgrade = nil
+    qualityAssembler.dump_inventory_size = 0
+
+
+    data:extend({qualityAssembler})
+    local hiddenChest = table.deepcopy(data.raw["car"]["car"])
+    hiddenChest.name = "mix-n-matcher-hidden-chest-"..machine
+    data:extend({hiddenChest})
 end
-
-local hiddenChest = table.deepcopy(data.raw["car"]["car"])
-hiddenChest.name = "mix-n-matcher-hidden-chest"
--- Strip out collision and selection properties
-hiddenChest.collision_mask = {layers = {}} -- Empty layers = no collision with anything
-hiddenChest.selection_box = {{-0.75,-0.75}, {0.75,0.75}}            -- Cannot be hovered over or clicked
-hiddenChest.collision_box =  {{-0.75,-0.75}, {0.75,0.75}} 
-hiddenChest.draw_copper_wires = false
-hiddenChest.minable = nil
-hiddenChest.inventory_size = (maxRecipe + maxOutputs) * (maxQuality) 
-hiddenChest.flags = {"not-blueprintable", "not-deconstructable", "placeable-off-grid"}
-hiddenChest.energy_source = {type="void"}
-hiddenChest.consumption = "0W"
-hiddenChest.braking_force = "0W"
-hiddenChest.effectivity = 0
-hiddenChest.guns = nil
-hiddenChest.animation = nil
--- Make it completely invisible
-hiddenChest.hidden = true
-hiddenChest.picture = {
-    filename = "__core__/graphics/blank.png",
-    priority = "extra-high", 
-    width = 1, 
-    height = 1
-}
-data:extend({hiddenChest})
-
-
-data:extend({{
-    type = "item",
-    name = "dummy-item",
-    icon = "__base__/graphics/icons/coin.png", -- Uses a built-in invisible square
-    icon_size = 64,
-    stack_size = 100,                     -- Required by the engine to load
-    
-    -- Hides the item from the game GUI, production stats, and filters
-    hidden = true,
-}})
-
-
-

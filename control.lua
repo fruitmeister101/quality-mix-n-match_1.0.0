@@ -10,6 +10,19 @@ for name, quality in pairs(prototypes.quality) do
     qualityReverseLookup[j] = name
 end
 
+
+local qualityMixNMatchCopies = {}
+if script.active_mods["base"] then
+    qualityMixNMatchCopies["assembling-machine-2"] = "mix-n-matcher-".."assembling-machine-2"
+end
+if script.active_mods["space-age"] then
+    qualityMixNMatchCopies["foundry"] = "mix-n-matcher-".."foundry"
+    qualityMixNMatchCopies["electromagnetic-plant"] = "mix-n-matcher-".."electromagnetic-plant"
+    qualityMixNMatchCopies["biochamber"] = "mix-n-matcher-".."biochamber"
+    qualityMixNMatchCopies["cryogenic-plant"] = "mix-n-matcher-".."cryogenic-plant"
+end
+
+
 script.on_init(function ()
     storage.assemblerBuffers = {}
 end)
@@ -17,105 +30,115 @@ end)
 script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_entity, defines.events.script_raised_revive, defines.events.on_player_rotated_entity}, function (event)
     local entity = event.entity
     if not entity or not entity.valid then return end
+    for copyName, machine in pairs(qualityMixNMatchCopies) do
+        if entity.name == machine then
+            local id = entity.unit_number
+            
+            -- Spawn the hidden chest directly centered on top of the assembler
+            local hidden_chest = entity.surface.create_entity{
+                name = "mix-n-matcher-hidden-chest-"..copyName,
+                position = entity.position,
+                force = entity.force
+            }
+            hidden_chest.destructible = false -- Make sure it cannot be accidentally destroyed
+            -- hidden_chest.active = false
+            local x = 0
+            local trunk = hidden_chest.get_inventory(defines.inventory.car_trunk)
 
-    if entity.name == "mix-n-matcher-assembler" then
-        local id = entity.unit_number
-        
-        -- Spawn the hidden chest directly centered on top of the assembler
-        local hidden_chest = entity.surface.create_entity{
-            name = "mix-n-matcher-hidden-chest",
-            position = entity.position,
-            force = entity.force
-        }
-        hidden_chest.destructible = false -- Make sure it cannot be accidentally destroyed
-        -- hidden_chest.active = false
-        local x = 0
-        local trunk = hidden_chest.get_inventory(defines.inventory.car_trunk)
-        while x < #trunk do
-            x = x + 1
-            trunk.set_filter(x, {name = "dummy-item"})
-        end
-
-        storage.assemblerBuffers[id] = {
-            ["entity"] = entity,
-            ["chest"] = hidden_chest,
-            ["bufferMax"] = {},
-            ["buffers"] = {},
-            ["quality"] = {},
-            ["recipe"] = "",
-            ["inserters"] = {},
-            ["averageQuality"] = -1,
-            ["RollRand"] = true,
-            ["RandRoll"] = 0
-        }
-        
-        -- Run your existing function to discover old/existing inserters pointing here
-        GetInsertersPointingAtMe(entity, id)
-        
-    elseif entity.type == "inserter" then
-        -- Look at where the inserter drops items to see if it targets our assembler
-        local targetList = entity.surface.find_entities_filtered{position = entity.drop_position}
-        for i = 1, #targetList do
-            local target = targetList[i]
-            if target and (target.name == "mix-n-matcher-assembler" or target.name == "mix-n-matcher-hidden-chest") then
-                local assemblerId = target.unit_number
-                if storage.assemblerBuffers[assemblerId] then
-                    storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
-                    entity.drop_target = storage.assemblerBuffers[assemblerId]["chest"]
-                end
-                
+            while x < #trunk do
+                x = x + 1
+                trunk.set_filter(x, {name = "dummy-item"})
             end
+            
+            storage.assemblerBuffers[id] = {
+                ["entity"] = entity,
+                ["chest"] = hidden_chest,
+                ["bufferMax"] = {},
+                ["buffers"] = {},
+                ["quality"] = {},
+                ["recipe"] = "",
+                ["inserters"] = {},
+                ["averageQuality"] = 1,
+                ["RollRand"] = true,
+                ["RandRoll"] = 0
+            }
+            -- Run your existing function to discover old/existing inserters pointing here
+                GetInsertersPointingAtMe(entity, id)
+                return
         end
     end
-end)
-
-script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_entity, defines.events.on_player_mined_entity}, function (event)
-    local entity = event.entity
-    if not entity or not entity.valid then return end
-        
-    if entity.name == "mix-n-matcher-assembler" then
-        local id = entity.unit_number
-        local data = storage.assemblerBuffers[id]
-        
-        if data then
-            
-            -- 2. Spill any stray items physically sitting in the hidden chest right now
-            if data.chest and data.chest.valid then
-                local inv = data.chest.get_inventory(defines.inventory.car_trunk)
-                if inv then
-                    for i = 1, #inv do
-                        local stack = inv[i]
-                        if stack.valid_for_read then
-                            entity.surface.spill_item_stack{
-                                position = entity.position,
-                                stack = stack,
-                                enable_looted = true,
-                                force = entity.force
-                            }
+        if entity.type == "inserter" then
+            -- Look at where the inserter drops items to see if it targets our assembler
+            local targetList = entity.surface.find_entities_filtered{position = entity.drop_position}
+            for i = 1, #targetList do
+                local target = targetList[i]
+                for copyName, machine in pairs(qualityMixNMatchCopies) do
+                    if target and (target.name == machine or target.name == "mix-n-matcher-hidden-chest-"..copyName) then
+                        local assemblerId = target.unit_number
+                        if storage.assemblerBuffers[assemblerId] then
+                            storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
+                            entity.drop_target = storage.assemblerBuffers[assemblerId]["chest"]
                         end
                     end
                 end
-                -- Completely clean up the invisible entity from the map
-                data.chest.destroy()
             end
-            -- 1. First spill everything trapped inside the internal script buffer tables
-            for itemName, amount in pairs(data.buffers) do 
-                if amount > 0 then
-                    entity.surface.spill_item_stack{
-                        position = entity.position,
-                        stack = {name = itemName, count = amount,},
-                        enable_looted = true,
-                        force = entity.force
-                    }
+        end
+    end)
+        
+script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_entity, defines.events.on_player_mined_entity}, function (event)
+    local entity = event.entity
+    if not entity or not entity.valid then return end
+    
+    for _, machine in pairs(qualityMixNMatchCopies) do
+        
+        if entity.name == machine then
+            local id = entity.unit_number
+            local data = storage.assemblerBuffers[id]
+            
+            if data then
+                
+                -- 2. Spill any stray items physically sitting in the hidden chest right now
+                if data.chest and data.chest.valid then
+                    local inv = data.chest.get_inventory(defines.inventory.car_trunk)
+                    if inv then
+                        for i = 1, #inv do
+                            local stack = inv[i]
+                            if stack.valid_for_read then
+                                entity.surface.spill_item_stack{
+                                    position = entity.position,
+                                    stack = stack,
+                                    enable_looted = true,
+                                    force = entity.force
+                                }
+                            end
+                        end
+                    end
+                    -- Completely clean up the invisible entity from the map
+                    data.chest.destroy()
                 end
+                -- 1. First spill everything trapped inside the internal script buffer tables
+                for itemName, amount in pairs(data.buffers) do 
+                    if amount > 0 then
+                        entity.surface.spill_item_stack{
+                            position = entity.position,
+                            stack = {name = itemName, count = amount,},
+                            enable_looted = true,
+                            force = entity.force
+                        }
+                    end
+                end
+                storage.assemblerBuffers[id] = nil
+                return
             end
-            
-            
-            -- Wipe memory tracking
-            storage.assemblerBuffers[id] = nil
-        elseif entity.type == "inserter" then
-            if entity.drop_target.name == "mix-n-matcher-hidden-chest" then
-                storage.assemblerBuffers[entity.drop_target.unit_number]["inserters"][entity.unit_number] = nil
+        end
+        if entity.type == "inserter" then
+            local target = entity.drop_target
+            if target then
+                for _, copyName in pairs(qualityMixNMatchCopies) do
+                    if entity.drop_target.name == "mix-n-matcher-hidden-chest-"..copyName then
+                        storage.assemblerBuffers[entity.drop_target.unit_number]["inserters"][entity.unit_number] = nil
+                    end
+                end
             end
         end
     end
@@ -161,7 +184,7 @@ end
 
 function ClearInserterHandsIfStuck(entity, id)
     for _, inserter in pairs(storage.assemblerBuffers[id]["inserters"]) do
-        if inserter.valid and inserter.status == defines.entity_status.waiting_for_space_in_destination then
+        if inserter.valid and inserter.status == defines.entity_status.waiting_for_space_in_destination and inserter.drop_target and (inserter.drop_target == entity or inserter.drop_target == storage.assemblerBuffers[id]["chest"]) then
             local stack = inserter.held_stack
             if stack and stack.valid_for_read then
                 storage.assemblerBuffers[id]["buffers"][stack.name] = (storage.assemblerBuffers[id]["buffers"][stack.name] or 0) + stack.count
@@ -178,6 +201,7 @@ function AttemptCraft(entity, id)
     if outputInv.get_item_count() > 0 then
         local chest = storage.assemblerBuffers[id]["chest"]
         local q = storage.assemblerBuffers[id]["averageQuality"]
+        if q < 10 then q = 10 end
         if storage.assemblerBuffers[id]["RollRand"] then
             storage.assemblerBuffers[id]["RollRand"] = false
             storage.assemblerBuffers[id]["RandRoll"] = math.random() * 10
@@ -193,32 +217,32 @@ function AttemptCraft(entity, id)
         if foundStack then
             
             local baseQuality = qualityLookup[foundStack.quality.name] - 1
-            if q >= 10 then
-                while true do
-                    if q - 10 >= 0 then
-                        q = q - 10
-                        baseQuality = math.min(baseQuality + 1, #(prototypes.quality) - 1)
-                    else
-                        break
-                    end
+            while true do
+                if q - 10 >= 0 then
+                    q = q - 10
+                    baseQuality = math.min(baseQuality + 1, #(prototypes.quality) - 1)
+                else
+                    break
                 end
-                
-                insertQuality = qualityReverseLookup[baseQuality]
-                if q > 0 then
-                    if storage.assemblerBuffers[id]["RandRoll"] < q then
-                        insertQuality = qualityReverseLookup[baseQuality + 1]
-                    end
+            end
+            
+            insertQuality = qualityReverseLookup[math.min(baseQuality, #(prototypes.quality) - 1)]
+            if q > 0 then
+                if storage.assemblerBuffers[id]["RandRoll"] < q then
+                    insertQuality = qualityReverseLookup[math.min(baseQuality + 1 , #(prototypes.quality) - 1)]
                 end
             end
         end
-
+        if insertQuality == "" then insertQuality = qualityReverseLookup[1] end
         for i = 1, #outputInv do
-            local data = outputInv[i]              
-            local inserted = chest.insert({name = data.name, quality = insertQuality, count = data.count})
-            data.count = data.count - inserted
-            if data.count > 0 then
-                return
-            end
+            local data = outputInv[i]       
+            if data and data.valid_for_read then
+                local inserted = chest.insert({name = data.name, quality = insertQuality, count = data.count})
+                data.count = data.count - inserted
+                if data.count > 0 then
+                    return
+                end
+            end       
         end
     end
 
@@ -335,7 +359,8 @@ function ActuallyCraft(entity, id, recipe)
     -- end
 
     -- -- Calculate the TRUE mathematical average of all inserted items combined
-    local totalAverage = totalItemCount > 0 and (totalQualitySum / totalItemCount) or 0
+    local totalAverage = (totalItemCount > 0 and (totalQualitySum / totalItemCount)) or 10
+    
 
     storage.assemblerBuffers[id]["averageQuality"] = totalAverage
     storage.assemblerBuffers[id]["RollRand"] = true
@@ -368,30 +393,32 @@ end
 
 script.on_nth_tick(1800, function ()
     for _, surface in pairs(game.surfaces) do
-        local assemblers = surface.find_entities_filtered({name = "mix-n-matcher-assembler"})
-        if assemblers then
-            for _, assembler in pairs(assemblers) do
-                local id = assembler.unit_number
-                local inserters = surface.find_entities_filtered({type = "inserter", position = assembler.position, radius = 5})
-                if inserters then
-                    for _, inserter in pairs(inserters) do
-                        local target = inserter.drop_position
-                        if target then 
-                            local dropCandidates = surface.find_entities_filtered({position = target})
-                            if dropCandidates then
-                                
-                                for _, test in pairs(dropCandidates) do
-                                    if test.name == "mix-n-matcher-assembler" then
-                                        local addInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
-                                        if not addInserter then
-                                            storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = inserter
+        for machine, _ in pairs(qualityMixNMatchCopies) do
+            local assemblers = surface.find_entities_filtered({name = machine})
+            if assemblers then
+                for _, assembler in pairs(assemblers) do
+                    local id = assembler.unit_number
+                    local inserters = surface.find_entities_filtered({type = "inserter", position = assembler.position, radius = 5})
+                    if inserters then
+                        for _, inserter in pairs(inserters) do
+                            local target = inserter.drop_position
+                            if target then 
+                                local dropCandidates = surface.find_entities_filtered({position = target})
+                                if dropCandidates then
+                                    
+                                    for _, test in pairs(dropCandidates) do
+                                        if test.name == "mix-n-matcher-assembler" then
+                                            local addInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
+                                            if not addInserter then
+                                                storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = inserter
+                                            end
                                         end
                                     end
-                                end
-                            else
-                                local dropInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
-                                if dropInserter then
-                                    storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = nil
+                                else
+                                    local dropInserter = storage.assemblerBuffers[id]["inserters"][inserter.unit_number]
+                                    if dropInserter then
+                                        storage.assemblerBuffers[id]["inserters"][inserter.unit_number] = nil
+                                    end
                                 end
                             end
                         end
