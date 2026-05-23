@@ -24,13 +24,16 @@ for _, mdata in pairs(QualityMixNMatchCopies) do
     -- qualityAssembler.tint = {r = 0.7, g = 0.2, b = 0.9, a = 1.0} 
     qualityAssembler.minable.result = "mix-n-matcher-"..machine
     qualityAssembler.allow_inserter_to_pull_from_or_target = false
-    qualityAssembler.collision_mask = {
-        layers = {
-            floor = true,
-            object = true
-        }
+    -- qualityAssembler.collision_mask = {
+    --     layers = {
+    --         floor = true,
+    --         object = true
+    --     }
+    -- }
+    qualityAssembler.flags = {
+        "no-automated-item-removal",
+        "no-automated-item-insertion"
     }
-    -- qualityAssembler.collision_box = nil
     qualityAssembler.next_upgrade = nil
     qualityAssembler.dump_inventory_size = 0
 

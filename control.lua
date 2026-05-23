@@ -71,7 +71,6 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
         end
     end
         if entity.type == "inserter" then
-
             -- Look at where the inserter drops items to see if it targets our assembler
             local targetList = entity.surface.find_entities_filtered{position = entity.drop_position}
             local pickUpList = entity.surface.find_entities_filtered{position = entity.pickup_position}
@@ -83,7 +82,7 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
                         if storage.assemblerBuffers[assemblerId] then
                             storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
                             entity.drop_target = storage.assemblerBuffers[assemblerId]["chest"]
-                            -- game.print("Successfully Added Inserter: "..entity.unit_number)
+                            game.print("Successfully Added Inserter: "..entity.unit_number)
                             SetExtractingInserterFiltersToOutputs(assemblerId, target.get_recipe(), {[1]=entity})
                         end
                     end
@@ -97,7 +96,7 @@ script.on_event({defines.events.on_robot_built_entity, defines.events.on_built_e
                         if storage.assemblerBuffers[assemblerId] then
                             storage.assemblerBuffers[assemblerId]["inserters"][entity.unit_number] = entity
                             entity.pickup_target = storage.assemblerBuffers[assemblerId]["chest"]
-                            -- game.print("Successfully Added Inserter: "..entity.unit_number)
+                            game.print("Successfully Added Inserter: "..entity.unit_number)
                             SetExtractingInserterFiltersToOutputs(assemblerId, pickup.get_recipe(), {[1]=entity})
                         end
                     end
@@ -135,6 +134,7 @@ script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_en
                         end
                     end
                     -- Completely clean up the invisible entity from the map
+                    storage.hiddenChests[data.chest.unit_number] = nil
                     data.chest.destroy()
                 end
                 -- 1. First spill everything trapped inside the internal script buffer tables
@@ -159,15 +159,18 @@ script.on_event({defines.events.on_entity_died, defines.events.on_robot_mined_en
                 for machineName, _ in pairs(qualityMixNMatchCopies) do
                     if target.name == "mix-n-matcher-hidden-chest-"..machineName then
                         storage.assemblerBuffers[storage.hiddenChests[target.unit_number].unit_number]["inserters"][entity.unit_number] = nil
-                        -- game.print("Successfully removed inserter: " .. entity.unit_number)
+                        game.print("Successfully removed inserter: " .. entity.unit_number)
                     end
                 end
             end
             if pickup then
                 for machineName, _ in pairs(qualityMixNMatchCopies) do
                     if pickup.name == "mix-n-matcher-hidden-chest-"..machineName then
-                        storage.assemblerBuffers[storage.hiddenChests[pickup.unit_number].unit_number]["inserters"][entity.unit_number] = nil
-                        -- game.print("Successfully removed inserter: " .. entity.unit_number)
+                        if storage.hiddenChests[pickup.unit_number] and storage.assemblerBuffers[storage.hiddenChests[pickup.unit_number].unit_number] then
+                            
+                            storage.assemblerBuffers[storage.hiddenChests[pickup.unit_number].unit_number]["inserters"][entity.unit_number] = nil
+                            game.print("Successfully removed inserter: " .. entity.unit_number)
+                        end
                     end
                 end
             end
@@ -236,8 +239,10 @@ function SetExtractingInserterFiltersToOutputs(id, recipe, inserters)
                     inserter.use_filters = true
                     inserter.inserter_filter_mode = "whitelist"
                     for _, product in pairs(recipe.products) do
-                        i = i + 1
-                        inserter.set_filter(i, {name=product.name})
+                        if product.type == "item" then
+                            i = i + 1
+                            inserter.set_filter(i, {name=product.name})
+                        end
                     end
                 end
             end
